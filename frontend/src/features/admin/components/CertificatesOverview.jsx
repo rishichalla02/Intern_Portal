@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getAllCertificates, downloadAdminCertificate } from '../services/admin.service';
+import { getAllCertificates, downloadAdminCertificate, revokeAdminCertificate } from '../services/admin.service';
 import Toast from '../../../shared/components/Toast';
 import './CertificatesOverview.css';
 
@@ -19,6 +19,7 @@ export default function CertificatesOverview() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [downloadingId, setDownloadingId] = useState(null);
+  const [revokingId, setRevokingId] = useState(null);
   const [toast, setToast] = useState(null);
 
   const fetchCertificates = useCallback(async () => {
@@ -70,6 +71,23 @@ export default function CertificatesOverview() {
       });
     } finally {
       setDownloadingId(null);
+      setTimeout(() => setToast(null), 5000);
+    }
+  };
+
+  const handleRevoke = async (cert) => {
+    if (!window.confirm(`Revoke certificate ${cert.certificateNumber}? This cannot be undone.`)) return;
+    setRevokingId(cert._id);
+    try {
+      const result = await revokeAdminCertificate(cert._id);
+      setCertificates((current) => current.map((item) => item._id === cert._id
+        ? { ...item, ...(result.certificate || {}), status: 'revoked' }
+        : item));
+      setToast({ type: 'success', message: `Certificate ${cert.certificateNumber} revoked.` });
+    } catch (err) {
+      setToast({ type: 'error', message: err.message || 'Unable to revoke certificate.' });
+    } finally {
+      setRevokingId(null);
       setTimeout(() => setToast(null), 5000);
     }
   };
@@ -142,6 +160,7 @@ export default function CertificatesOverview() {
             <tbody>
               {certificates.map((cert) => {
                 const isFinalized = cert.status === 'finalized';
+                const canRevoke = ['finalized', 'issued'].includes(cert.status);
                 const hasPdf = Boolean(cert.pdfPath) && isFinalized;
                 const isDownloading = downloadingId === cert._id;
                 const intern = cert.userId || {};
@@ -164,11 +183,12 @@ export default function CertificatesOverview() {
                     </td>
                     <td>{formatDate(cert.issuedDate || cert.createdAt)}</td>
                     <td>
-                      <span className={`cert-status-tag ${isFinalized ? 'is-finalized' : 'is-draft'}`}>
+                      <span className={`cert-status-tag ${cert.status === 'revoked' ? 'is-revoked' : isFinalized ? 'is-finalized' : 'is-draft'}`}>
                         {cert.status ? cert.status.toUpperCase() : 'UNKNOWN'}
                       </span>
                     </td>
                     <td>
+                      <div className="cert-row-actions">
                       {hasPdf ? (
                         <button
                           type="button"
@@ -200,6 +220,10 @@ export default function CertificatesOverview() {
                           Unavailable
                         </span>
                       )}
+                      {canRevoke && <button type="button" className="cert-revoke-btn" onClick={() => handleRevoke(cert)} disabled={revokingId === cert._id}>
+                        {revokingId === cert._id ? 'Revoking…' : 'Revoke'}
+                      </button>}
+                      </div>
                     </td>
                   </tr>
                 );

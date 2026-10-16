@@ -87,6 +87,17 @@ const certificateSchema = new mongoose.Schema(
         index: true
     },
 
+    revokedAt: {
+        type: Date,
+        default: null
+    },
+
+    revokedBy: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "user",
+        default: null
+    },
+
     qrCodePath: {
         type: String
     },
