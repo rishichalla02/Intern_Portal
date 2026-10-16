@@ -11,7 +11,7 @@ export default function AuditLogsPage() {
   const filters = useMemo(() => Object.fromEntries(searchParams.entries()), [searchParams]);
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState('');
-  const { logs, pagination, loading, error, refresh } = useAuditLogs({ page: filters.page || 1, limit: 25, action: filters.action, actorRole: filters.actorRole, targetType: filters.targetType, from: filters.from, to: filters.to });
+  const { logs, pagination, loading, error, refresh } = useAuditLogs({ page: filters.page || 1, limit: 25, action: filters.action, actorRole: filters.actorRole, targetType: filters.targetType, actorId: filters.actorId, from: filters.from, to: filters.to });
   const changeFilters = useCallback((next) => { const clean = Object.fromEntries(Object.entries(next).filter(([, value]) => value !== '' && value != null)); setSearchParams(clean); }, [setSearchParams]);
   useEffect(() => { if (pagination.pages && Number(filters.page || 1) > pagination.pages) changeFilters({ ...filters, page: pagination.pages }); }, [pagination.pages, filters, changeFilters]);
   const exportCsv = async () => {

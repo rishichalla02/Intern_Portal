@@ -83,6 +83,7 @@ export async function sendArchiveWarnings({ graceDays, dryRun, today, notify = c
             title: 'Internship archive warning',
             message: `Your internship account is scheduled for archival on ${archiveDate.toLocaleDateString('en-IN')}.`,
             type: 'internship',
+          email: false,
           });
         } catch (error) {
           console.error(`[retention] warning email failed for ${intern._id}:`, error.message);

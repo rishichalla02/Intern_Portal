@@ -298,7 +298,7 @@ export async function updateIntern(req, res) {
 
         await logAudit({
             userId: req.user.id,
-            action: 'UPDATE_INTERN_BY_ADMIN',
+            action: 'INTERN_UPDATED',
             entityType: 'User',
             entityId: intern._id,
             description: changes,
@@ -354,7 +354,7 @@ export async function assignInternTeamLeader(req, res) {
 
         await logAudit({
             userId: req.user.id,
-            action: prevTlId ? 'REASSIGN_INTERN_TEAM_LEADER' : 'ASSIGN_INTERN_TEAM_LEADER',
+            action: prevTlId ? 'INTERN_TEAM_LEADER_REASSIGNED' : 'INTERN_TEAM_LEADER_ASSIGNED',
             entityType: 'User',
             entityId: intern._id,
             description: {
@@ -591,7 +591,7 @@ export const finalizeRequest = async (req, res) => {
       await logAudit({ userId: req.user.id, action: 'CERTIFICATE_DRAFT_CREATED', entityType: 'Certificate', entityId: certificate._id, meta: { requestId: request._id, certificateType: request.certificateType }, req });
     }
 
-    await logAudit({ userId: req.user.id, action: `CERTIFICATE_REQUEST_${action.toUpperCase()}`, entityType: 'CertificateRequest', entityId: request._id, meta: { certificateType: request.certificateType }, req });
+    await logAudit({ userId: req.user.id, action: action === 'approve' ? 'CERTIFICATE_REQUEST_APPROVED' : 'CERTIFICATE_REQUEST_REJECTED', entityType: 'CertificateRequest', entityId: request._id, meta: { certificateType: request.certificateType, reviewStage: 'admin' }, req });
     await createNotification({
       userId: request.userId,
       title: action === 'approve' ? 'Certificate request approved' : 'Certificate request declined',
@@ -661,6 +661,7 @@ export const finalizeCertificate = async (req, res) => {
       title: 'Certificate ready',
       message: 'Your certificate has been finalized and is ready to download.',
       type: 'certificate',
+      email: !emailSent,
     });
 
     if (emailError) {
@@ -707,10 +708,13 @@ export const revokeCertificate = async (req, res) => {
   }
 
   try {
+    const reason = String(req.body?.reason || '').trim();
+    if (!reason) return res.status(400).json({ message: 'A revocation reason is required.' });
+    if (reason.length > 1000) return res.status(400).json({ message: 'Revocation reason must be 1000 characters or fewer.' });
     const revokedAt = new Date();
     const certificate = await Certificate.findOneAndUpdate(
       { _id: req.params.id, status: { $in: ['finalized', 'issued'] } },
-      { $set: { status: 'revoked', revokedAt, revokedBy: req.user.id } },
+      [{ $set: { revokedFromStatus: '$status', status: 'revoked', revokedAt, revokedBy: req.user.id, revocationReason: reason } }],
       { new: true, runValidators: true }
     );
 
@@ -724,7 +728,7 @@ export const revokeCertificate = async (req, res) => {
     }
 
     await Promise.all([
-      logAudit({ userId: req.user.id, action: 'CERTIFICATE_REVOKED', entityType: 'Certificate', entityId: certificate._id, meta: { revokedAt: revokedAt.toISOString() }, req }),
+      logAudit({ userId: req.user.id, action: 'CERTIFICATE_REVOKED', entityType: 'Certificate', entityId: certificate._id, meta: { revokedAt: revokedAt.toISOString(), reason }, req }),
       createNotification({
         userId: certificate.userId,
         title: 'Certificate revoked',
@@ -737,6 +741,27 @@ export const revokeCertificate = async (req, res) => {
   } catch (error) {
     console.error('Certificate revocation failed:', error.message);
     return res.status(500).json({ message: 'Unable to revoke certificate.' });
+  }
+};
+
+export const unrevokeCertificate = async (req, res) => {
+  if (!mongoose.Types.ObjectId.isValid(req.params.id)) return res.status(400).json({ message: 'Invalid certificate ID.' });
+  try {
+    const certificate = await Certificate.findOneAndUpdate(
+      { _id: req.params.id, status: 'revoked' },
+      [{ $set: { status: { $ifNull: ['$revokedFromStatus', 'issued'] } } }, { $unset: ['revokedAt', 'revokedBy', 'revocationReason', 'revokedFromStatus'] }],
+      { new: true, runValidators: true }
+    );
+    if (!certificate) {
+      const existing = await Certificate.findById(req.params.id).select('status');
+      if (!existing) return res.status(404).json({ message: 'Certificate not found.' });
+      return res.status(409).json({ message: 'Only revoked certificates can be reinstated.' });
+    }
+    await logAudit({ userId: req.user.id, action: 'CERTIFICATE_UNREVOKED', entityType: 'Certificate', entityId: certificate._id, meta: { restoredStatus: certificate.status }, req });
+    return res.json({ message: 'Certificate reinstated.', certificate });
+  } catch (error) {
+    console.error('Certificate reinstatement failed:', error.message);
+    return res.status(500).json({ message: 'Unable to reinstate certificate.' });
   }
 };
 

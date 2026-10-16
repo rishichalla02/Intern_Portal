@@ -16,11 +16,12 @@ export default function useAuditLogs(filters) {
   const action = filters.action ?? '';
   const actorRole = filters.actorRole ?? '';
   const targetType = filters.targetType ?? '';
+  const actorId = filters.actorId ?? '';
   const from = filters.from ?? '';
   const to = filters.to ?? '';
 
   const loadLogs = useCallback(() => {
-    const params = { page, limit, action, actorRole, targetType, from, to };
+    const params = { page, limit, action, actorRole, targetType, actorId, from, to };
     const requestKey = JSON.stringify(params);
     if (inFlightRequest.current?.key === requestKey) return inFlightRequest.current.promise;
 
@@ -44,7 +45,7 @@ export default function useAuditLogs(filters) {
       });
 
     return request.promise;
-  }, [page, limit, action, actorRole, targetType, from, to]);
+  }, [page, limit, action, actorRole, targetType, actorId, from, to]);
 
   useEffect(() => {
     loadLogs();

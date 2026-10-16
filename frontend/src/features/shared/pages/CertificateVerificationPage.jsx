@@ -49,6 +49,7 @@ export default function CertificateVerificationPage() {
       </> : <>
         <p>{result?.message || 'No active certificate record matched this verification link.'}</p>
         {result?.certificate?.certificateNumber && <dl><div><dt>Certificate number</dt><dd>{result.certificate.certificateNumber}</dd></div><div><dt>Status</dt><dd>{status || 'not verified'}</dd></div></dl>}
+        {status === 'revoked' && result?.certificate?.revocationReason && <p className="certificate-verification-reason"><strong>Reason:</strong> {result.certificate.revocationReason}</p>}
       </>}
       <Link to="/login">Return to portal</Link>
     </section>

@@ -537,8 +537,9 @@ test('Comprehensive 7 Certificate Types & Generation Flow Tests', async (t) => {
       assert.ok(draft.htmlContent.includes('Full Stack'));
       assert.match(draft.certificateNumber, /^CERT-\d{4}-\d{5}$/);
       assert.match(draft.verificationCode, /^VER-[0-9A-F]{32}$/);
+      assert.equal(draft.verificationIdVersion, 2);
       assert.match(draft.htmlContent, /<img src="data:image\/png;base64,[^"]+" alt="QR">/);
-      assert.match(draft.htmlContent, /href="https?:\/\/[^\s"']+\/verify\/CERT-[^\s"']+"/);
+      assert.match(draft.htmlContent, new RegExp(`/verify/${draft.verificationCode}`));
     } finally {
       CertificateRequest.findById = origRequestFindById;
       CertificateTemplate.findOne = origTemplateFindOne;

@@ -16,7 +16,7 @@ import { sendEmail } from '../utils/sendEmail.js';
    CONSTANTS
 ========================================================= */
 
-export const getVerificationUrl = (certificateNumber) => {
+export const getVerificationUrl = (verificationId) => {
   const frontendUrl = process.env.FRONTEND_URL || (process.env.NODE_ENV === 'production' ? '' : 'http://localhost:5173');
   if (!frontendUrl) throw new Error('FRONTEND_URL must be set to the deployed frontend origin in production.');
 
@@ -25,7 +25,7 @@ export const getVerificationUrl = (certificateNumber) => {
     throw new Error('FRONTEND_URL must use HTTPS in production.');
   }
 
-  return `${configuredUrl.origin}/verify/${encodeURIComponent(certificateNumber)}`;
+  return `${configuredUrl.origin}/verify/${encodeURIComponent(verificationId)}`;
 };
 
 /* =========================================================
@@ -123,8 +123,8 @@ const formatDate = (date) => {
  * Example output:
  * data:image/png;base64,iVBORw0KGgoAAAANSUhEUg...
  */
-const generateQrCode = async (certificateNumber) => {
-  const verificationUrl = getVerificationUrl(certificateNumber);
+const generateQrCode = async (verificationId) => {
+  const verificationUrl = getVerificationUrl(verificationId);
 
   const qrCodeDataUrl = await QRCode.toDataURL(verificationUrl, {
     errorCorrectionLevel: 'M',
@@ -314,7 +314,7 @@ export const createCertificateDraft = async (requestId) => {
   const {
     qrCodeDataUrl,
     verificationUrl,
-  } = await generateQrCode(certificateNumber);
+  } = await generateQrCode(verificationCode);
 
   /* ---------------------------------------------------------
      Request metadata
@@ -870,6 +870,8 @@ export const createCertificateDraft = async (requestId) => {
       htmlContent,
 
       verificationCode,
+
+      verificationIdVersion: 2,
 
       generatedBy:
         request.reviewedBy,

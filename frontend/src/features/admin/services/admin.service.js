@@ -240,8 +240,11 @@ export const getAllCertificates = () =>
     '/api/admin/certificates'
   );
 
-export const revokeAdminCertificate = (id) =>
-  request('patch', `/api/admin/certificates/${id}/revoke`);
+export const revokeAdminCertificate = (id, reason) =>
+  request('patch', `/api/admin/certificates/${id}/revoke`, { reason });
+
+export const unrevokeAdminCertificate = (id) =>
+  request('patch', `/api/admin/certificates/${id}/unrevoke`);
 
 export const retryCertificateGeneration = (
   id

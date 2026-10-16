@@ -1,7 +1,13 @@
 import mongoose from 'mongoose';
 import Notification from '../models/Notification.js';
+import User from '../models/User.js';
+import { sendEmail } from './sendEmail.js';
 
-export async function createNotification({ userId, title, message, type = 'general' }) {
+const escapeHtml = (value = '') => String(value).replace(/[&<>"']/g, (character) => ({
+  '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+}[character]));
+
+export async function createNotification({ userId, title, message, type = 'general', email = true }) {
   if (!userId || !title || !message) {
     return null;
   }
@@ -14,6 +20,20 @@ export async function createNotification({ userId, title, message, type = 'gener
       message: String(message).trim(),
       type,
     });
+
+    // Email delivery is best effort so Brevo outages never prevent an in-app event.
+    try {
+      const recipient = await User.findById(userId).select('email fullName personalDataPurged').lean();
+      if (email && recipient?.email && !recipient.personalDataPurged && process.env.BREVO_SMTP_USER && process.env.BREVO_SMTP_KEY && process.env.BREVO_SENDER_EMAIL) {
+        void sendEmail({
+          to: recipient.email,
+          subject: String(title).trim(),
+          html: `<p>Hello ${escapeHtml(recipient.fullName || 'there')},</p><p>${escapeHtml(message).replace(/\n/g, '<br>')}</p><p>Sign in to your UPTOSKILL portal to view this notification.</p>`,
+        }).catch((emailError) => console.error('Notification email delivery failed:', emailError.message));
+      }
+    } catch (emailError) {
+      console.error('Notification email delivery failed:', emailError.message);
+    }
 
     return notification;
   } catch (error) {

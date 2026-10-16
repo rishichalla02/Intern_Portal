@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getAllCertificates, downloadAdminCertificate, revokeAdminCertificate } from '../services/admin.service';
+import { getAllCertificates, downloadAdminCertificate, revokeAdminCertificate, unrevokeAdminCertificate } from '../services/admin.service';
 import Toast from '../../../shared/components/Toast';
 import './CertificatesOverview.css';
 
@@ -76,16 +76,35 @@ export default function CertificatesOverview() {
   };
 
   const handleRevoke = async (cert) => {
-    if (!window.confirm(`Revoke certificate ${cert.certificateNumber}? This cannot be undone.`)) return;
+    const reason = window.prompt(`Enter the reason for revoking certificate ${cert.certificateNumber}:`);
+    if (reason === null) return;
+    if (!reason.trim()) { setToast({ type: 'error', message: 'A revocation reason is required.' }); return; }
     setRevokingId(cert._id);
     try {
-      const result = await revokeAdminCertificate(cert._id);
+      const result = await revokeAdminCertificate(cert._id, reason.trim());
       setCertificates((current) => current.map((item) => item._id === cert._id
         ? { ...item, ...(result.certificate || {}), status: 'revoked' }
         : item));
       setToast({ type: 'success', message: `Certificate ${cert.certificateNumber} revoked.` });
     } catch (err) {
       setToast({ type: 'error', message: err.message || 'Unable to revoke certificate.' });
+    } finally {
+      setRevokingId(null);
+      setTimeout(() => setToast(null), 5000);
+    }
+  };
+
+  const handleUnrevoke = async (cert) => {
+    if (!window.confirm(`Reinstate certificate ${cert.certificateNumber}?`)) return;
+    setRevokingId(cert._id);
+    try {
+      const result = await unrevokeAdminCertificate(cert._id);
+      setCertificates((current) => current.map((item) => item._id === cert._id
+        ? { ...item, ...(result.certificate || {}), status: result.certificate?.status || 'issued' }
+        : item));
+      setToast({ type: 'success', message: `Certificate ${cert.certificateNumber} reinstated.` });
+    } catch (err) {
+      setToast({ type: 'error', message: err.message || 'Unable to reinstate certificate.' });
     } finally {
       setRevokingId(null);
       setTimeout(() => setToast(null), 5000);
@@ -222,6 +241,9 @@ export default function CertificatesOverview() {
                       )}
                       {canRevoke && <button type="button" className="cert-revoke-btn" onClick={() => handleRevoke(cert)} disabled={revokingId === cert._id}>
                         {revokingId === cert._id ? 'Revoking…' : 'Revoke'}
+                      </button>}
+                      {cert.status === 'revoked' && <button type="button" className="cert-revoke-btn" onClick={() => handleUnrevoke(cert)} disabled={revokingId === cert._id}>
+                        {revokingId === cert._id ? 'Reinstating…' : 'Unrevoke'}
                       </button>}
                       </div>
                     </td>

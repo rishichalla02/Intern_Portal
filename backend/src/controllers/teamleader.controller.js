@@ -282,7 +282,7 @@ export const reviewRequestAsTL = async (req, res) => {
     }
 
     await request.save();
-    await logAudit({ userId: req.user.id, action: `CERTIFICATE_REQUEST_${action === 'forward' ? 'FORWARDED' : 'REJECTED_BY_TEAM_LEADER'}`, entityType: 'CertificateRequest', entityId: request._id, meta: { rejectionReason: action === 'reject' ? rejectionReason : undefined }, req });
+    await logAudit({ userId: req.user.id, action: action === 'forward' ? 'CERTIFICATE_REQUEST_FORWARDED' : 'CERTIFICATE_REQUEST_REJECTED', entityType: 'CertificateRequest', entityId: request._id, meta: { reviewStage: 'teamleader', rejectionReason: action === 'reject' ? rejectionReason : undefined }, req });
     const statusMessage = action === 'forward' ? 'Your certificate request was forwarded to the administrator.' : `Your certificate request was declined by your team leader.${rejectionReason ? ` Reason: ${rejectionReason}` : ''}`;
     const notifications = [createNotification({ userId: request.userId, title: action === 'forward' ? 'Request forwarded' : 'Request declined', message: statusMessage, type: 'certificate' })];
     if (action === 'forward') {

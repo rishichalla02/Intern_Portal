@@ -4,6 +4,6 @@ import publicRateLimit from '../middlewares/publicRateLimit.js';
 
 const publicRouter = express.Router();
 
-publicRouter.get('/verify/:certificateNumber', publicRateLimit, verifyPublicCertificate);
+publicRouter.get('/verify/:verificationId', publicRateLimit, verifyPublicCertificate);
 
 export default publicRouter;

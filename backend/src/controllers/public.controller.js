@@ -4,22 +4,24 @@ const escapeRegExp = (value = '') => String(value).replace(/[.*+?^${}()|[\]\\]/g
 
 export const verifyPublicCertificate = async (req, res) => {
   try {
-    const rawCertificateNumber = String(req.params.certificateNumber || '').trim();
+    const rawVerificationId = String(req.params.verificationId || req.params.certificateNumber || '').trim();
 
-    if (!rawCertificateNumber || rawCertificateNumber.length > 80) {
+    if (!rawVerificationId || rawVerificationId.length > 80) {
       return res.status(400).json({
         valid: false,
-        message: 'Certificate number is required.'
+        message: 'Verification ID is required.'
       });
     }
 
     const certificate = await Certificate.findOne({
-      certificateNumber: {
-        $regex: `^${escapeRegExp(rawCertificateNumber)}$`,
-        $options: 'i',
-      },
+      $or: [
+        { verificationCode: { $regex: `^${escapeRegExp(rawVerificationId)}$`, $options: 'i' } },
+        // Only pre-v2 certificates accept their printed legacy number. New certificates require the random ID.
+        { verificationIdVersion: { $lt: 2 }, certificateNumber: { $regex: `^${escapeRegExp(rawVerificationId)}$`, $options: 'i' } },
+        { verificationIdVersion: { $exists: false }, certificateNumber: { $regex: `^${escapeRegExp(rawVerificationId)}$`, $options: 'i' } },
+      ],
     })
-      .select('certificateNumber certificateType issuedDate finalizedAt status domain userId revokedAt')
+      .select('certificateNumber verificationCode certificateType issuedDate finalizedAt status domain userId revokedAt revocationReason')
       .populate('userId', 'fullName')
       .lean();
 
@@ -42,7 +44,7 @@ export const verifyPublicCertificate = async (req, res) => {
         certificate: {
           certificateNumber: certificate.certificateNumber,
           status: certificate.status,
-          ...(isRevoked && certificate.revokedAt ? { revokedAt: certificate.revokedAt } : {}),
+          ...(isRevoked && certificate.revokedAt ? { revokedAt: certificate.revokedAt, revocationReason: certificate.revocationReason } : {}),
         },
       });
     }

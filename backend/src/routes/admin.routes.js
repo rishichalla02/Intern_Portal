@@ -18,6 +18,7 @@ import {
   finalizeCertificate,
   getAllCertificates,
   revokeCertificate,
+  unrevokeCertificate,
   retryCertificateGeneration,
   downloadCertificatePdf,
   getTemplatePlaceholders,
@@ -104,6 +105,7 @@ adminRouter.post("/certificates/:id/finalize", verifyAuth, requireAdmin, finaliz
 // Day 5 Admin Overview, Download & Retry Generation routes
 adminRouter.get("/certificates", verifyAuth, requireAdmin, getAllCertificates);
 adminRouter.patch("/certificates/:id/revoke", verifyAuth, requireAdmin, revokeCertificate);
+adminRouter.patch("/certificates/:id/unrevoke", verifyAuth, requireAdmin, unrevokeCertificate);
 adminRouter.get("/certificates/:id/download", verifyAuth, requireAdmin, downloadCertificatePdf);
 adminRouter.post("/requests/:id/retry-generation", verifyAuth, requireAdmin, retryCertificateGeneration);
 

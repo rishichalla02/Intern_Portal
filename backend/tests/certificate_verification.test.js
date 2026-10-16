@@ -6,7 +6,7 @@ import Certificate from '../src/models/Certificate.js';
 import User from '../src/models/User.js';
 import app from '../src/app.js';
 import { verifyPublicCertificate } from '../src/controllers/public.controller.js';
-import { downloadCertificatePdf, revokeCertificate } from '../src/controllers/admin.controller.js';
+import { downloadCertificatePdf, revokeCertificate, unrevokeCertificate } from '../src/controllers/admin.controller.js';
 import publicRateLimit from '../src/middlewares/publicRateLimit.js';
 import { getVerificationUrl } from '../src/services/certificate.service.js';
 
@@ -50,9 +50,11 @@ test('public verification only returns issued certificate fields and escapes loo
     assert.equal('internCode' in res.body.certificate, false);
     assert.equal('_id' in res.body.certificate, false);
     assert.equal('userId' in res.body.certificate, false);
-    assert.match(restore.query.filter.certificateNumber.$regex, /^\^CERT-2026\\\.00001\$$/);
+    assert.match(restore.query.filter.$or[1].certificateNumber.$regex, /^\^CERT-2026\\\.00001\$$/);
+    assert.equal(restore.query.filter.$or[1].verificationIdVersion.$lt, 2);
     assert.equal(restore.query.populate.fields, 'fullName');
-    assert.doesNotMatch(restore.query.select, /verificationCode|pdfPath|internCode/);
+    assert.match(restore.query.select, /verificationCode/);
+    assert.doesNotMatch(restore.query.select, /pdfPath|internCode/);
   } finally { restore(); }
 });
 
@@ -141,14 +143,16 @@ test('admin revocation updates status atomically and records the revoking admin'
     return certificate;
   };
   try {
-    const req = { params: { id: certificate._id.toString() }, user: { id: new mongoose.Types.ObjectId().toString() } };
+    const req = { params: { id: certificate._id.toString() }, body: { reason: 'Incorrect completion dates' }, user: { id: new mongoose.Types.ObjectId().toString() } };
     const res = response();
     await revokeCertificate(req, res);
     assert.equal(res.statusCode, 200);
       assert.deepEqual(filter.status.$in, ['finalized', 'issued']);
-    assert.equal(update.$set.status, 'revoked');
-    assert.equal(update.$set.revokedBy, req.user.id);
-    assert.ok(update.$set.revokedAt instanceof Date);
+    assert.equal(update[0].$set.status, 'revoked');
+    assert.equal(update[0].$set.revocationReason, req.body.reason);
+    assert.equal(update[0].$set.revokedBy, req.user.id);
+    assert.ok(update[0].$set.revokedAt instanceof Date);
+    assert.equal(update[0].$set.revokedFromStatus, '$status');
     assert.deepEqual(options, { new: true, runValidators: true });
   } finally { Certificate.findOneAndUpdate = originalUpdate; }
 });
@@ -162,18 +166,36 @@ test('revoking an already revoked certificate is idempotent; drafts conflict', a
   try {
     const id = new mongoose.Types.ObjectId().toString();
     const already = response();
-    await revokeCertificate({ params: { id }, user: { id } }, already);
+    await revokeCertificate({ params: { id }, body: { reason: 'Duplicate issue' }, user: { id } }, already);
     assert.equal(already.statusCode, 200);
     assert.match(already.body.message, /already revoked/i);
 
     status = 'draft';
     const draft = response();
-    await revokeCertificate({ params: { id }, user: { id } }, draft);
+    await revokeCertificate({ params: { id }, body: { reason: 'Duplicate issue' }, user: { id } }, draft);
     assert.equal(draft.statusCode, 409);
   } finally {
     Certificate.findOneAndUpdate = originalUpdate;
     Certificate.findById = originalFindById;
   }
+});
+
+test('revocation requires a reason and unrevoke restores the prior certificate state', async () => {
+  const originalUpdate = Certificate.findOneAndUpdate;
+  let update;
+  Certificate.findOneAndUpdate = async (_filter, nextUpdate) => { update = nextUpdate; return { status: 'finalized' }; };
+  try {
+    const id = new mongoose.Types.ObjectId().toString();
+    const missingReason = response();
+    await revokeCertificate({ params: { id }, body: {}, user: { id } }, missingReason);
+    assert.equal(missingReason.statusCode, 400);
+
+    const unrevokeResponse = response();
+    await unrevokeCertificate({ params: { id }, user: { id } }, unrevokeResponse);
+    assert.equal(unrevokeResponse.statusCode, 200);
+    assert.deepEqual(update[0].$set.status, { $ifNull: ['$revokedFromStatus', 'issued'] });
+    assert.ok(update[1].$unset.includes('revocationReason'));
+  } finally { Certificate.findOneAndUpdate = originalUpdate; }
 });
 
 test('revoked certificates are rejected by the existing admin PDF download controller', async () => {

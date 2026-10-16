@@ -1,7 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import mongoose from 'mongoose';
+import nodemailer from 'nodemailer';
 import Notification from '../src/models/Notification.js';
+import User from '../src/models/User.js';
+import { createNotification } from '../src/utils/notificationService.js';
 import {
   getNotifications,
   getUnreadNotificationCount,
@@ -16,6 +19,43 @@ const response = () => ({
   statusCode: 200, body: null,
   status(code) { this.statusCode = code; return this; },
   json(body) { this.body = body; return this; },
+});
+
+test('in-app notification triggers a safe Brevo email to its owner', async () => {
+  const originals = {
+    readyState: mongoose.connection.readyState,
+    create: Notification.create,
+    findById: User.findById,
+    createTransport: nodemailer.createTransport,
+    env: Object.fromEntries(['BREVO_SMTP_USER', 'BREVO_SMTP_KEY', 'BREVO_SENDER_EMAIL'].map((key) => [key, process.env[key]])),
+  };
+  const sent = [];
+  const userId = new mongoose.Types.ObjectId();
+  mongoose.connection.readyState = 1;
+  process.env.BREVO_SMTP_USER = 'smtp-user';
+  process.env.BREVO_SMTP_KEY = 'smtp-key';
+  process.env.BREVO_SENDER_EMAIL = 'verified@example.org';
+  Notification.create = async (document) => ({ _id: 'notification-1', ...document });
+  User.findById = () => ({ select: () => ({ lean: async () => ({ email: 'person@example.org', fullName: '<User>', personalDataPurged: false }) }) });
+  nodemailer.createTransport = (config) => ({ sendMail: (mail) => { sent.push({ config, mail }); return Promise.resolve({ messageId: 'test-message' }); } });
+  try {
+    const notification = await createNotification({ userId, title: 'Certificate ready', message: '<script>alert(1)</script>', type: 'certificate' });
+    assert.equal(notification.userId, userId);
+    assert.equal(sent.length, 1);
+    assert.equal(sent[0].config.host, 'smtp-relay.brevo.com');
+    assert.equal(sent[0].mail.to, 'person@example.org');
+    assert.match(sent[0].mail.html, /&lt;User&gt;/);
+    assert.match(sent[0].mail.html, /&lt;script&gt;/);
+  } finally {
+    mongoose.connection.readyState = originals.readyState;
+    Notification.create = originals.create;
+    User.findById = originals.findById;
+    nodemailer.createTransport = originals.createTransport;
+    for (const [key, value] of Object.entries(originals.env)) {
+      if (value === undefined) delete process.env[key];
+      else process.env[key] = value;
+    }
+  }
 });
 
 test('notification list and unread count are scoped to the authenticated user', async () => {
