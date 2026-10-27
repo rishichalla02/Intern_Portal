@@ -1,6 +1,6 @@
 import express from 'express';
-import User from '../models/User.js';
 import verifyAuth from '../middlewares/verifyAuth.js';
+import User from '../models/User.js';
 import {
   getMyRequests,
   getProfile,
@@ -8,8 +8,11 @@ import {
   markNotificationAsRead,
   submitCertificateRequest,
   getCertificateForRequest,
-  downloadCertificateForRequest
+  downloadCertificateForRequest,
+  setPassword,
+  updateProfile
 } from '../controllers/intern.controller.js';
+import { setPasswordValidator, updateProfileValidator } from '../validators/intern.validator.js';
 
 const internRouter = express.Router();
 
@@ -34,6 +37,11 @@ internRouter.use(async (req, res, next) => {
 });
 
 internRouter.get('/profile', getProfile);
+
+// my changes
+internRouter.patch('/profile', updateProfileValidator, updateProfile);
+internRouter.patch('/set-password', setPasswordValidator, setPassword);
+// here completed
 
 internRouter.get('/notifications', getNotifications);
 internRouter.patch('/notifications/:id/read', markNotificationAsRead);

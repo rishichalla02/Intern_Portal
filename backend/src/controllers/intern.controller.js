@@ -3,6 +3,7 @@ import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 import mongoose from 'mongoose';
+import bcrypt from 'bcryptjs';
 import User from '../models/User.js';
 import CertificateRequest from '../models/CertificateRequest.js';
 import Certificate from '../models/Certificate.js';
@@ -427,5 +428,76 @@ export const downloadCertificateForRequest = async (req, res) => {
     return res.status(500).json({
       message: 'Internal server error'
     });
+  }
+};
+
+// my changes
+export const setPassword = async (req, res) => {
+  try {
+    const { currentSecret, newPassword } = req.body;
+
+    const user = await User.findById(req.user.id);
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    // The intern code is stored hashed as the first password, so one check covers both cases.
+    const secretOk = await user.comparePassword(currentSecret);
+
+    // 400, not 401: a 401 would look like an expired session to the frontend.
+    if (!secretOk) {
+      return res.status(400).json({ message: 'Current intern code or password is incorrect' });
+    }
+
+    if (newPassword === currentSecret || newPassword === user.internCode) {
+      return res.status(400).json({ message: 'Choose a password different from your intern code or current password' });
+    }
+
+    const firstTimeSetup = !user.passwordSetAt;
+
+    user.password = await bcrypt.hash(newPassword, 10);
+    user.passwordSetAt = new Date();
+    user.resetPasswordToken = undefined;
+    user.resetPasswordExpires = undefined;
+    await user.save();
+
+    await logAudit({
+      userId: req.user.id,
+      action: 'PASSWORD_CHANGED',
+      entityType: 'User',
+      entityId: user._id,
+      meta: { firstTimeSetup },
+      req
+    });
+
+    return res.json({ message: 'Password updated successfully', hasPassword: true });
+  } catch (err) {
+    return res.status(500).json({ message: 'Unable to update password.' });
+  }
+};
+
+export const updateProfile = async (req, res) => {
+  try {
+    // Only mobileNo is read from the body; anything else is ignored.
+    const { mobileNo } = req.body;
+
+    const user = await User.findByIdAndUpdate(
+      req.user.id,
+      { $set: { mobileNo } },
+      { new: true }
+    ).select('mobileNo');
+
+    if (!user) return res.status(404).json({ message: 'User not found' });
+
+    await logAudit({
+      userId: req.user.id,
+      action: 'PROFILE_UPDATED',
+      entityType: 'User',
+      entityId: user._id,
+      meta: { fields: ['mobileNo'] },
+      req
+    });
+
+    return res.json({ message: 'Profile updated successfully', mobileNo: user.mobileNo });
+  } catch (err) {
+    return res.status(500).json({ message: 'Unable to update profile.' });
   }
 };
