@@ -148,7 +148,7 @@ export default function Login() {
             </label>
 
             <label className="field">
-              <b>Password</b>
+              <b>Password or Intern Code</b>
               <div
                 className={`input-wrap ${isPasswordInvalid ? 'invalid' : isPasswordValid ? 'valid' : ''
                   }`}
@@ -157,7 +157,7 @@ export default function Login() {
                 <input
                   type={showPassword ? 'text' : 'password'}
                   name="password"
-                  placeholder="••••••••"
+                  placeholder="Password or intern code"
                   value={values.password}
                   onChange={handleChange}
                   onBlur={handleBlur}

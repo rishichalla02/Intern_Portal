@@ -1,28 +1,29 @@
-import { useState } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
-import { useIntern } from '../hooks/useIntern';
-import { useAuth } from '../../auth/hooks/useAuth';
-import RequestCertificateModal from '../components/RequestCertificateModal';
-import MyRequestsList from '../components/MyRequestsList';
-import NotificationBell from '../../shared/components/NotificationBell';
-import './InternDashboard.css';
-import '../../../app/App.css';
+import { useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { useIntern } from "../hooks/useIntern";
+import { useAuth } from "../../auth/hooks/useAuth";
+import { Link } from "react-router-dom";
+import RequestCertificateModal from "../components/RequestCertificateModal";
+import MyRequestsList from "../components/MyRequestsList";
+import NotificationBell from "../../shared/components/NotificationBell";
+import "./InternDashboard.css";
+import "../../../app/App.css";
 
 /* ── helpers ── */
 const formatDate = (iso) => {
-  if (!iso) return '—';
-  return new Date(iso).toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
+  if (!iso) return "—";
+  return new Date(iso).toLocaleDateString("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
   });
 };
 
-const getInitials = (name = '') =>
+const getInitials = (name = "") =>
   name
-    .split(' ')
+    .split(" ")
     .map((w) => w[0])
-    .join('')
+    .join("")
     .toUpperCase()
     .slice(0, 2);
 
@@ -36,15 +37,15 @@ const calcProgress = (start, end) => {
 };
 
 const calcDaysLeft = (end) => {
-  if (!end) return '—';
+  if (!end) return "—";
   const diff = Math.ceil((new Date(end).getTime() - Date.now()) / 86_400_000);
   return diff > 0 ? diff : 0;
 };
 
 /* ── nav items ── */
 const NAV_ITEMS = [
-  { icon: '🏠', label: 'Dashboard', id: 'dashboard' },
-  { icon: '📄', label: 'Certificates', id: 'certificates' },
+  { icon: "🏠", label: "Dashboard", id: "dashboard" },
+  { icon: "📄", label: "Certificates", id: "certificates" },
 ];
 
 /* ============================================================
@@ -55,25 +56,25 @@ export default function InternDashboard() {
   const { handleLogout } = useAuth();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const [fallbackNav, setFallbackNav] = useState('dashboard');
-  const activeNav = searchParams.get('view') || fallbackNav;
+  const [fallbackNav, setFallbackNav] = useState("dashboard");
+  const activeNav = searchParams.get("view") || fallbackNav;
   const [showCertificateModal, setShowCertificateModal] = useState(false);
 
   const onLogout = () => {
     handleLogout();
-    navigate('/login');
+    navigate("/login");
   };
   const changeNav = (view) => {
     setFallbackNav(view);
-    if (searchParams.has('view')) setSearchParams({});
+    if (searchParams.has("view")) setSearchParams({});
   };
 
   /* ── derived ── */
-  const initials = profile ? getInitials(profile.fullName) : '?';
+  const initials = profile ? getInitials(profile.fullName) : "?";
   const progress = profile
     ? calcProgress(profile.startDate, profile.endDate)
     : 0;
-  const daysLeft = profile ? calcDaysLeft(profile.endDate) : '—';
+  const daysLeft = profile ? calcDaysLeft(profile.endDate) : "—";
 
   /* ── render ── */
   return (
@@ -91,8 +92,8 @@ export default function InternDashboard() {
             {initials}
           </div>
           <div className="id-user-info">
-            <strong>{profile?.fullName ?? 'Loading…'}</strong>
-            <small>{profile?.email ?? ''}</small>
+            <strong>{profile?.fullName ?? "Loading…"}</strong>
+            <small>{profile?.email ?? ""}</small>
           </div>
 
           <button
@@ -114,13 +115,23 @@ export default function InternDashboard() {
             <button
               key={item.id}
               id={`sidebar-nav-${item.id}`}
-              className={`id-nav-item ${activeNav === item.id ? 'active' : ''}`}
+              className={`id-nav-item ${activeNav === item.id ? "active" : ""}`}
               onClick={() => changeNav(item.id)}
             >
               <span className="id-nav-icon">{item.icon}</span>
               {item.label}
             </button>
           ))}
+          {/* my changes */}
+          <button
+            id="sidebar-nav-settings"
+            className="id-nav-item"
+            onClick={() => navigate("/intern/settings")}
+          >
+            <span className="id-nav-icon">⚙️</span>
+            Settings
+          </button>
+          {/* here completed */}
         </nav>
       </aside>
 
@@ -129,36 +140,51 @@ export default function InternDashboard() {
         {/* Page header */}
         <header className="id-page-header">
           <h1 className="id-greeting">
-            Hello,{' '}
-            <em>{profile?.fullName ?? '…'}</em> 👋
+            Hello, <em>{profile?.fullName ?? "…"}</em> 👋
           </h1>
           <p className="id-subtext">
             Here's your internship overview for today.
           </p>
         </header>
 
-        {activeNav === 'dashboard' && archiveNotice && (
+        {activeNav === "dashboard" && archiveNotice && (
           <div className="id-archive-warning" role="status">
             <strong>Account archival scheduled</strong>
             <span>
-              Your account is scheduled to be archived on {formatDate(archiveNotice.archiveDate)}.
-              {' '}You have {archiveNotice.daysUntilArchive} day{archiveNotice.daysUntilArchive === 1 ? '' : 's'} remaining to access your portal account and certificates.
+              Your account is scheduled to be archived on{" "}
+              {formatDate(archiveNotice.archiveDate)}. You have{" "}
+              {archiveNotice.daysUntilArchive} day
+              {archiveNotice.daysUntilArchive === 1 ? "" : "s"} remaining to
+              access your portal account and certificates.
             </span>
           </div>
         )}
 
-        {activeNav === 'certificates' && (
+        {activeNav === "certificates" && (
           <>
-            <section className="certificate-actions" aria-label="Certificate requests">
-              <div><p className="request-eyebrow">CERTIFICATE DESK</p><h2>Request a certificate</h2><p>Choose a certificate and follow its progress here.</p></div>
-              <button type="button" className="request-primary-button" onClick={() => setShowCertificateModal(true)}>Request certificate</button>
+            <section
+              className="certificate-actions"
+              aria-label="Certificate requests"
+            >
+              <div>
+                <p className="request-eyebrow">CERTIFICATE DESK</p>
+                <h2>Request a certificate</h2>
+                <p>Choose a certificate and follow its progress here.</p>
+              </div>
+              <button
+                type="button"
+                className="request-primary-button"
+                onClick={() => setShowCertificateModal(true)}
+              >
+                Request certificate
+              </button>
             </section>
             <MyRequestsList />
           </>
         )}
 
         {/* ── Loading state ── */}
-        {activeNav === 'dashboard' && loading && (
+        {activeNav === "dashboard" && loading && (
           <div className="id-loading" role="status" aria-live="polite">
             <div className="id-spinner" aria-hidden="true" />
             <span>Loading your profile…</span>
@@ -166,7 +192,7 @@ export default function InternDashboard() {
         )}
 
         {/* ── Error state ── */}
-        {activeNav === 'dashboard' && !loading && error && (
+        {activeNav === "dashboard" && !loading && error && (
           <div className="id-error" role="alert">
             <span className="id-error-icon">⚠️</span>
             <span>{error}</span>
@@ -181,7 +207,7 @@ export default function InternDashboard() {
         )}
 
         {/* ── Profile data ── */}
-        {activeNav === 'dashboard' && !loading && !error && profile && (
+        {activeNav === "dashboard" && !loading && !error && profile && (
           <>
             {/* Profile Card */}
             <section className="id-profile-card" aria-label="Profile details">
@@ -202,9 +228,7 @@ export default function InternDashboard() {
                     <span className="id-badge id-badge-role">
                       🎓 {profile.role}
                     </span>
-                    <span className="id-badge id-badge-active">
-                      ✅ Active
-                    </span>
+                    <span className="id-badge id-badge-active">✅ Active</span>
                   </div>
                 </div>
               </div>
@@ -247,7 +271,9 @@ export default function InternDashboard() {
                     </div>
                   </div>
 
-                  <div className="id-arrow" aria-hidden="true">→</div>
+                  <div className="id-arrow" aria-hidden="true">
+                    →
+                  </div>
 
                   <div className="id-date-block end">
                     <div className="id-date-label">🔵 End Date</div>
@@ -304,11 +330,14 @@ export default function InternDashboard() {
                 <div className="id-stat-value info">{progress}%</div>
               </div>
             </div>
-
           </>
         )}
       </main>
-      {showCertificateModal && <RequestCertificateModal onClose={() => setShowCertificateModal(false)} />}
+      {showCertificateModal && (
+        <RequestCertificateModal
+          onClose={() => setShowCertificateModal(false)}
+        />
+      )}
     </div>
   );
 }

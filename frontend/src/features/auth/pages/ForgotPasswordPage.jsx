@@ -44,7 +44,7 @@ export default function ForgotPasswordPage() {
       <div className="form-side">
         <div className="auth-card">
           <h2>Forgot Password?</h2>
-          <p className="sub">Enter your staff account email and we will send a reset link.</p>
+          <p className="sub">Enter your account email and we will send a reset link.</p>
 
           {message ? (
             <div className="auth-status success" role="status">{message}</div>

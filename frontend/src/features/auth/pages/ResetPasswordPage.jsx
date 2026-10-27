@@ -54,7 +54,7 @@ export default function ResetPasswordPage() {
       <div className="form-side">
         <div className="auth-card">
           <h2>Reset Password</h2>
-          <p className="sub">Create a new password for your staff account.</p>
+          <p className="sub">Create a new password for your account.</p>
 
           {success ? (
             <>
